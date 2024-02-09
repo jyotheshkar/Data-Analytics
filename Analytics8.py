@@ -12,7 +12,7 @@ def calculate_threshold_mean_std(booking_counts, num_std=1):
     return threshold
 
 def plot_booking_activity(file_path):
-    """Plot the booking activity from a CSV file, setting the threshold using mean and standard deviation, and clearly define what green and red data points represent, including the horizontal threshold line annotation and exact number of bookings."""
+    """Plot the booking activity from a CSV file, setting the threshold using mean and standard deviation."""
     # Read and preprocess data
     df = pd.read_csv(file_path, skiprows=1)
     df['Created Date'] = pd.to_datetime(df.iloc[:, 1], format='%d/%m/%Y')
