@@ -46,9 +46,9 @@ def plot_combined_booking_activity_analysis(file_path):
     # Use 'Week Sequence' for plotting on X-axis
     ax.bar(booking_counts['Week Sequence'], booking_counts['Number of Bookings'], color='grey', alpha=0.5, width=1)
 
-    # Calculate mean and standard deviation for annotation
+    # Calculations include weeks with 0 bookings
     mean_bookings = booking_counts['Number of Bookings'].mean()
-    std_bookings = booking_counts['Number of Bookings'].std()
+    std_bookings = booking_counts['Number of Bookings'].std(ddof=0)  # Ensure this line correctly calculates including zeros
     threshold_value = mean_bookings + std_bookings
 
     # Calculate offset for text annotation based on range of 'Number of Bookings'
@@ -83,6 +83,7 @@ def plot_combined_booking_activity_analysis(file_path):
     plt.tight_layout()
     plt.show()
 
+
 # Specify the correct path to your CSV file
-file_path = 'C:\\Users\\Jyothesh karnam\\Desktop\\collaborative application development\\Data Files\\D19.csv'
+file_path = ""
 plot_combined_booking_activity_analysis(file_path)
