@@ -1,98 +1,110 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.stats import zscore
+import numpy as np
+import os
 
-def plot_combined_booking_activity_analysis(file_path):
-    # Read data from CSV
-    df = pd.read_csv(file_path)
+def plot_combined_booking_activity_analysis_and_display_table(file_path):
     
-    # Strip leading/trailing spaces from column names
-    df.columns = df.columns.str.strip()
+    # To read the CSV file and to skip the first row if it is necessary
+    df = pd.read_csv(file_path, skiprows=1)
     
-    if 'Created Date' not in df.columns:
-        print("Column 'Created Date' not found. Please check the column names.")
-        return
+    # To convert the 'Created Date' column to datetime format
+    df['Created Date'] = pd.to_datetime(df['Created Date'], format='%d/%m/%Y')
     
-    # Convert 'Created Date' to datetime format, specifying dayfirst due to DD/MM/YYYY format
-    df['Created Date'] = pd.to_datetime(df['Created Date'], dayfirst=True)
+    # To find the first and last dates in the data
+    start_date = df['Created Date'].min()
+    end_date = df['Created Date'].max()
     
-    # Sort DataFrame by 'Created Date'
-    df.sort_values(by='Created Date', inplace=True)
+    # To calculate the number of days and subtract to get to the nearest Monday 
+    days_to_monday = (start_date.weekday() - 0) % 7
     
-    # Extract sequential week number from 'Created Date'
-    df['Sequential Week Number'] = df['Created Date'].dt.isocalendar().week
+    # Adjusting the start_date to the nearest Monday
+    first_monday = start_date - pd.Timedelta(days=days_to_monday)
     
-    # Generate a complete sequence of weeks from the minimum to the maximum
-    complete_weeks = range(df['Sequential Week Number'].min(), df['Sequential Week Number'].max() + 1)
+    # To Calculate sequential week numbers which starts from the first monday
+    df['Sequential Week Number'] = ((df['Created Date'] - first_monday).dt.days // 7) + 1
     
-    # Initialize a DataFrame to represent all weeks
-    all_weeks_df = pd.DataFrame(complete_weeks, columns=['Sequential Week Number'])
-    
-    # Count bookings per week
-    booking_counts = df.groupby('Sequential Week Number')['Created Date'].count().reset_index(name='Number of Bookings')
-    
-    # Merge to ensure all weeks are represented, filling missing weeks with 0 bookings
-    booking_counts = all_weeks_df.merge(booking_counts, on='Sequential Week Number', how='left').fillna(0)
-    
-    # Calculate Z-scores of booking counts
-    booking_counts['z-score'] = zscore(booking_counts['Number of Bookings'].astype(float), ddof=0)
-    
-    # Map 'Sequential Week Number' to a new sequence starting from 1
-    booking_counts['Week Sequence'] = range(1, len(booking_counts) + 1)
 
-    plt.style.use('dark_background')
+    #  Creating a dataframe that wil list all sequential week numbers
+    all_weeks = pd.DataFrame({'Sequential Week Number': range(1, ((end_date - first_monday).days // 7) + 2)})
+    
+
+    # To group the data by week and then count the number of bookings per week 
+    booking_counts = df.groupby('Sequential Week Number').size().reset_index(name='Number of Bookings')
+    
+   
+    # To merge the list of all the weeks with the booking counts and also to include the weeks with no booking counts
+    booking_counts_complete = pd.merge(all_weeks, booking_counts, on='Sequential Week Number', how='left').fillna(0)
+    
+   
+    # Calculate the z-scores for the booking counts to identify the outliers
+    booking_counts_complete['z-score'] = zscore(booking_counts_complete['Number of Bookings'], ddof=0)
+   
+    # Round the z-scores to 4 decimal places 
+    booking_counts_complete['z-score'] = booking_counts_complete['z-score'].round(4)
+    
+
+    # start plotting
+    plt.style.use('classic')
     fig, ax = plt.subplots(figsize=(16, 12))
+    fig.patch.set_facecolor('white')  # changes the background to white
+    ax.set_facecolor('white')  # changes the plot background to white
 
-    # Use 'Week Sequence' for plotting on X-axis
-    ax.bar(booking_counts['Week Sequence'], booking_counts['Number of Bookings'], color='grey', alpha=0.5, width=1)
 
-    # Calculations include weeks with 0 bookings
-    mean_bookings = booking_counts['Number of Bookings'].mean()
-    std_bookings = booking_counts['Number of Bookings'].std(ddof=0)  # Ensure this line correctly calculates including zeros
+    # To plot the number of bookings per week in a bar chart 
+    ax.bar(booking_counts_complete['Sequential Week Number'], booking_counts_complete['Number of Bookings'], color='skyblue', alpha=0.7, width=1)
+
+  
+    #  for threshold value calculate the mean and standard deviation 
+    mean_bookings = booking_counts_complete['Number of Bookings'].mean()
+    std_bookings = booking_counts_complete['Number of Bookings'].std(ddof=0)
     threshold_value = mean_bookings + std_bookings
 
-    # Calculate offset for text annotation based on range of 'Number of Bookings'
-    offset = (max(booking_counts['Number of Bookings']) - min(booking_counts['Number of Bookings'])) * 0.02
 
-    # Annotate each bar with booking count and z-score
-    for i, row in booking_counts.iterrows():
-        color = 'green' if row['Number of Bookings'] > threshold_value else 'red'
-        ax.scatter(row['Week Sequence'], row['Number of Bookings'], color=color, zorder=5)
-        ax.text(row['Week Sequence'], row['Number of Bookings'] + offset, f"{row['Number of Bookings']}", 
-                ha='center', va='bottom', color='white', fontsize=8, 
-                bbox=dict(facecolor='grey', edgecolor='none', boxstyle="round,pad=0.1"))
-        ax.text(row['Week Sequence'], row['Number of Bookings'] + 2 * offset, f"Z={row['z-score']:.4f}", rotation=90,
-                ha='center', va='bottom', color='white', fontsize=8, 
-                bbox=dict(facecolor='grey', edgecolor='none', boxstyle="round,pad=0.1"))
+    # To determine the offset for text annotations or tooltips based on the range of bookings each week 
+    offset = max(booking_counts_complete['Number of Bookings']) * 0.02
 
-    # Draw threshold line and update legend
-    ax.axhline(y=threshold_value, color='orange', linestyle='--', label=f'Threshold: {threshold_value:.4f}')
-
-    legend_text = f'Threshold: {threshold_value:.4f}\nMean: {mean_bookings:.4f}\nSD: {std_bookings:.4f}'
-    ax.legend([legend_text], loc='upper left')
-
-    # Configure axis labels and title
-    ax.set_xlabel('Sequential Week Number')
+    
+    # To annotate each bar with the total number of bookings and also highlighting the onese above the threshold in red
+    for i, row in booking_counts_complete.iterrows():
+        color = 'red' if row['Number of Bookings'] > threshold_value else 'black'
+        ax.scatter(row['Sequential Week Number'], row['Number of Bookings'], color=color, zorder=5)
+        ax.text(row['Sequential Week Number'], row['Number of Bookings'] + offset, f"{int(row['Number of Bookings'])}", 
+                ha='center', va='center', color='white', fontsize=8, 
+                bbox=dict(facecolor='black', edgecolor='none', boxstyle="round,pad=0.3"))
+    
+   
+    # Sets the axis title and labels
+    ax.set_xlabel('Week No.')
     ax.set_ylabel('Number of Bookings')
-    ax.set_title('Combined Booking Activity Analysis')
+    filename = os.path.basename(file_path)
+    ax.set_title(f'Booking Count by Week ({filename})')
+    
+
+    # Adjusts the grid, ticks and limits for better visualization
     ax.grid(True, color='gray', linestyle='--', linewidth=0.5)
-    ax.set_xticks(booking_counts['Week Sequence'])
-    ax.set_xticklabels(booking_counts['Week Sequence'], rotation=45)
-    ax.set_ylim(0, max(booking_counts['Number of Bookings']) + (5 * offset))
+    ax.set_xlim(0.5, len(all_weeks) + 0.5)
+    ax.set_xticks(range(1, booking_counts_complete['Sequential Week Number'].max() + 1))
+    ax.set_xticklabels(range(1, booking_counts_complete['Sequential Week Number'].max() + 1), rotation=0)  # Display x-axis labels upright
+    ax.set_ylim(0, max(booking_counts_complete['Number of Bookings']) + (5 * offset))
     
-    plt.tight_layout()
-    plt.show()
 
-    # Create and display the table with 'Week', 'Number of Bookings', and 'Z-score'
-    table = booking_counts[['Week Sequence', 'Number of Bookings', 'z-score']].copy()
-    table.rename(columns={'Week Sequence': 'Week', 'z-score': 'Z-score'}, inplace=True)
-    
-    # Display the table
-    print(table.to_string(index=False))
-    
-    # Optional: Save the table to a CSV file
-    # table.to_csv('booking_activity_analysis_table.csv', index=False)
+    # To draw the threshold line in dotted format and annotate it with the threshold valye
+    threshold_line = ax.axhline(y=threshold_value, color='darkorange', linestyle='--', linewidth=2)
+    ax.text(len(all_weeks) + 0.5, threshold_value, f"Threshold: {threshold_value:.2f}", 
+            va='center', ha='left', 
+            bbox=dict(facecolor='black', edgecolor='orange', boxstyle="round,pad=0.3", linewidth=2), color='orange')
 
-# Specify the correct path to your CSV file
-file_path = ""
-plot_combined_booking_activity_analysis(file_path)
+    plt.tight_layout()  # Layout Adjustments for clean visual
+    plt.show()  # Displays the plots
+
+
+    # Displays the booking data table with columns like week numbers, booking counts and z-scores 
+    # The table will display below the graph
+    display_table = booking_counts_complete[['Sequential Week Number', 'Number of Bookings', 'z-score']]
+    print(display_table.to_string(index=False))  # Prints the table 
+
+# creating a variable and specifying a path where the CSV file is located 
+file_path = 'C:\\Users\\Jyothesh karnam\\Desktop\\collaborative application development\\Data Files\\D19.csv'
+plot_combined_booking_activity_analysis_and_display_table(file_path)
