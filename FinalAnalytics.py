@@ -95,20 +95,21 @@ def plot_combined_booking_activity_analysis_and_display_table(file_path):
     plt.tight_layout()  # Layout Adjustments for clean visual
     plt.show()  # Displays the plots
 
-    # Save the table data to an Excel file
+    
+    # This code saves the table data into an excel file
     excel_filename = f"datareport_{os.path.splitext(os.path.basename(file_path))[0]}.xlsx"
     excel_folder = os.path.join(os.path.dirname(file_path), "reports")
-    os.makedirs(excel_folder, exist_ok=True)  # Create 'reports' folder if not exists
+    os.makedirs(excel_folder, exist_ok=True)  # This line automatically creates an reports file if there is none
     excel_filepath = os.path.join(excel_folder, excel_filename)
     workbook = xlsxwriter.Workbook(excel_filepath)
     worksheet = workbook.add_worksheet()
 
-    # Add heading formatting
+    # Formatting the heading and styling 
     heading_format = workbook.add_format({'bold': True, 'font_color': 'white', 'bg_color': 'black', 'border': 1})
-    data_format = workbook.add_format({'border': 1})
-    red_bg_format = workbook.add_format({'bg_color': 'red', 'border': 1})
+    data_format = workbook.add_format({'border': 1, 'align': 'center'})
+    red_bg_format = workbook.add_format({'bg_color': 'red', 'border': 1, 'align': 'center'})
 
-    # Write table data
+    # This part writes the tables data for week numbers, number of bookings and z-score values preciesly
     headings = ['Sequential Week Number', 'Number of Bookings', 'z-score']
     for col, heading in enumerate(headings):
         worksheet.write(0, col, heading, heading_format)
@@ -116,12 +117,12 @@ def plot_combined_booking_activity_analysis_and_display_table(file_path):
     for row, data in enumerate(booking_counts_complete.values):
         for col, value in enumerate(data):
             if headings[col] == 'z-score':
-                cell_format = red_bg_format if value > 0 else data_format
+                cell_format = red_bg_format if value > 1.000 else data_format
             else:
                 cell_format = data_format
             worksheet.write(row + 1, col, value, cell_format)
 
-    # Write additional table for threshold value, mean, and standard deviation
+    # this part is for the second table data that shows the threshold, mean and standard deviation values
     worksheet.write(len(booking_counts_complete) + 2, 0, 'Threshold', heading_format)
     worksheet.write(len(booking_counts_complete) + 2, 1, threshold_value, data_format)
 
@@ -134,6 +135,6 @@ def plot_combined_booking_activity_analysis_and_display_table(file_path):
     workbook.close()
     print(f"Excel file saved successfully: {excel_filepath}")
 
-# Example file path, replace this with your actual file path when you use the code
-file_path = 'C:\\Users\\Jyothesh karnam\\Desktop\\collaborative application development\\Data Files\\D19.csv'
+# In this file path variable. please change it into your file path where the csv files are located
+file_path = ''
 plot_combined_booking_activity_analysis_and_display_table(file_path)
