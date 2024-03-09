@@ -1,3 +1,5 @@
+NOTE: The finalanalytics.py was updated on march 9th, 2024 with comments. 
+
 Combined Booking Activity Analysis
 
 This Python script analyzes booking data, providing insights into weekly booking activity through a visual representation. It processes booking data from a CSV file, calculates weekly booking counts, their z-scores, and visualizes the data using a bar chart. Each bar represents the number of bookings for a given week, with annotations for the booking count and its z-score. The script also highlights weeks with booking counts above a certain threshold.
