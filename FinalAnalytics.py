@@ -10,38 +10,30 @@ from scipy.stats import zscore
 import os
 import xlsxwriter
 
+def weekly_summary(data):
+    """Calculate weekly counts without changing the caller's data or opening files."""
+    if 'Created Date' not in data.columns:
+        raise ValueError('CSV must contain a Created Date column')
+    if data.empty:
+        raise ValueError('CSV must contain at least one booking')
+    dates = pd.to_datetime(data['Created Date'], format='%d/%m/%Y', errors='raise')
+    if dates.isna().any():
+        raise ValueError('Created Date cannot be empty')
+    first_monday = dates.min() - pd.Timedelta(days=dates.min().weekday())
+    week_numbers = ((dates - first_monday).dt.days // 7) + 1
+    weeks = range(1, int(week_numbers.max()) + 1)
+    counts = week_numbers.value_counts().reindex(weeks, fill_value=0).sort_index()
+    result = pd.DataFrame({'Sequential Week Number': list(weeks), 'Number of Bookings': counts.to_numpy()})
+    mean = result['Number of Bookings'].mean()
+    std = result['Number of Bookings'].std(ddof=0)
+    result['z-score'] = 0.0 if std == 0 else ((result['Number of Bookings'] - mean) / std).round(4)
+    return result, mean, std, mean + 2 * std
+
 # Define the main function for booking activity analysis and plotting
-def plot_booking_activity_analysis_and_display_table(file_path):
-    # Reads the CSV file, also skips the first row which is assumed to be a header if it is necessary
-    df = pd.read_csv(file_path, skiprows=1)
-    # for easier manioulation, Convert the 'Created Date' column to datetime format
-    df['Created Date'] = pd.to_datetime(df['Created Date'], format='%d/%m/%Y')
-    # Finds the earliest and latest dates in the 'Created Date' column
-    start_date = df['Created Date'].min()
-    end_date = df['Created Date'].max()
-    # Calculates the number of days to the first monday from the start date
-    days_to_monday = (start_date.weekday() - 0) % 7
-    # Adjusts the start date to the first monday
-    first_monday = start_date - pd.Timedelta(days=days_to_monday)
-    # Calculates the sequential week numbers for each booking
-    df['Sequential Week Number'] = ((df['Created Date'] - first_monday).dt.days // 7) + 1
-    # Creates a dataframe with all the possible week numbers
-    all_weeks = pd.DataFrame({'Sequential Week Number': range(1, ((end_date - first_monday).days // 7) + 2)})
-    # Groups the data by week and then counts the number of bookings per week
-    booking_counts = df.groupby('Sequential Week Number').size().reset_index(name='Number of Bookings')
-    # Merges all_weeks dataframe with the booking_counts to include weeks with zero bookings
-    booking_counts_complete = pd.merge(all_weeks, booking_counts, on='Sequential Week Number', how='left').fillna(0)
-    
-    # Calculates the mean bookings to establish a threshold for high activity
-    mean_bookings = booking_counts_complete['Number of Bookings'].mean()
-    # Manually calculates the variance and standard deviation to include the weeks which has zero bookings
-    diff_squared = (booking_counts_complete['Number of Bookings'] - mean_bookings) ** 2
-    variance = diff_squared.mean()
-    std_bookings = variance ** 0.5
-    # Defines the threshold as two standard deviation above the mean
-    threshold_value = mean_bookings + 2 * std_bookings
-    # Calculates the z-scores for booking counts
-    booking_counts_complete['z-score'] = ((booking_counts_complete['Number of Bookings'] - mean_bookings) / std_bookings).round(4)
+def plot_booking_activity_analysis_and_display_table(file_path, skiprows=0):
+    df = pd.read_csv(file_path, skiprows=skiprows)
+    booking_counts_complete, mean_bookings, std_bookings, threshold_value = weekly_summary(df)
+    all_weeks = booking_counts_complete
     # Sets the plot style and creates a figure and axes for plotting
     plt.style.use('classic')
     fig, ax = plt.subplots(figsize=(16, 12))
@@ -124,7 +116,10 @@ def plot_booking_activity_analysis_and_display_table(file_path):
     workbook.close()
     print(f"Excel file saved successfully: {excel_filepath}")
 
-# Add the CSV file path here where the data files are located. Example D19.csv
-file_path = 'C:\\Users\\Jyothesh karnam\\Desktop\\collaborative application development\\Data Files\\SRM22.csv'
-# Call the function
-plot_booking_activity_analysis_and_display_table(file_path)
+if __name__ == '__main__':
+    import argparse
+    parser = argparse.ArgumentParser(description='Create weekly booking charts and an Excel report.')
+    parser.add_argument('csv_file', help='CSV with a Created Date column in DD/MM/YYYY format')
+    parser.add_argument('--skiprows', type=int, default=0, help='Use 1 for historical files with an extra metadata row')
+    args = parser.parse_args()
+    plot_booking_activity_analysis_and_display_table(args.csv_file, skiprows=args.skiprows)

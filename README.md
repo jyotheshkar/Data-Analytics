@@ -39,4 +39,6 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
+## Architecture and maintained workflow
 
+See [technical architecture, diagrams, engineering decisions, checks and scaling limits](docs/ARCHITECTURE.md). Maintenance dated 11 November 2026 is separate from the original learning/coursework source.
